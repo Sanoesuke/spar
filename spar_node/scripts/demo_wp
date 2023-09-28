@@ -70,17 +70,19 @@ def send_wps(spar_client):
 	# Loop through each waypoint in our list
 	i = 0
 	for wp in wps:
-		rospy.loginfo("Sending waypoint %i..." % (i + 1))
-		success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
-		i += 1
+		print(landing)
+		if not landing:
+			rospy.loginfo("Sending waypoint uav0 %i..." % (i + 1))			
+			success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
+			i += 1
 
-		# If we had an error, print and stop sending
-		if not success:
-			rospy.logerr("Waypoints failed!")
-			break;
+			# If we had an error, print and stop sending
+			if not success:
+				rospy.logerr("Waypoints failed uav0!")
+				break;
 
 	if success:
-		rospy.loginfo("Waypoints complete!")
+		rospy.loginfo("Waypoints complete uav0!")
 
 def send_wps_1(spar_client):
 	success = True
@@ -92,28 +94,36 @@ def send_wps_1(spar_client):
 		   [-1.0, 1.0, 2.0, 0.0],
 		   [-1.0,-1.0, 2.0, 0.0],
 		   [ 1.0,-1.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0],
+		   [ 1.0, 1.0, 2.0, 0.0],
+		   [-1.0, 1.0, 2.0, 0.0],
+		   [-1.0,-1.0, 2.0, 0.0],
+		   [ 1.0,-1.0, 2.0, 0.0],
 		   [ 0.0, 0.0, 2.0, 0.0]]
 
 	# Loop through each waypoint in our list
 	i = 0
 	for wp in wps:
-		rospy.loginfo("Sending waypoint %i..." % (i + 1))
-		success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
-		i += 1
-
-		# If we had an error, print and stop sending
-		if not success:
-			rospy.logerr("Waypoints failed!")
-			break;
+		if not landing:
+			print(landing)
+			rospy.loginfo("Sending waypoint uav1 %i..." % (i + 1))			
+			success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
+			i += 1
+			
+			# If we had an error, print and stop sending
+			if not success:
+				rospy.logerr("Waypoints failed uav1!")
+				break;
 
 	if success:
-		rospy.loginfo("Waypoints complete!")
+		rospy.loginfo("Waypoints complete uav1!")
 
 def land_drones(spar_client):
 	# Create our goal
 	goal = FlightMotionGoal()
 	goal.motion = FlightMotionGoal.MOTION_LAND
-	goal.velocity_vertical = rospy.get_param("~speed", 0.2)		# Other velocity information is ignored
+	goal.velocity_vertical = rospy.get_param("~speed", 0.8)		# Other velocity information is ignored
 	# No other information is used
 
 	# Send the goal
@@ -151,8 +161,10 @@ def worker(spar_client, waypoint_function):
     waypoint_function(spar_client)	
 
 def callback_target_found(msg_in):
+	global landing
 	rospy.loginfo("Received message on /land_trigger: %s", msg_in.data)
 	if(msg_in.data == True):
+		landing = True
 		rospy.loginfo("received msg to land")
 		land_drones(spar_client)
 		land_drones(spar_client_1)
@@ -167,6 +179,8 @@ def main(args):
 	action_ns = rospy.get_param("~action_topic", 'uav0/spar/flight')
 	action_ns_1 = rospy.get_param("~action_topic", 'uav1/spar/flight')
 
+	global landing
+	landing = False
 	# Create our action client for drone 0
 	global spar_client
 	spar_client = actionlib.SimpleActionClient(action_ns, FlightMotionAction)
