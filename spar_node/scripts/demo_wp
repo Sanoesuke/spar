@@ -2,17 +2,18 @@
 
 import sys
 from math import *
-
+import threading
 #import roslib
 #roslib.load_manifest('spar_node')
 import rospy
 import actionlib
 from actionlib_msgs.msg import GoalStatus
+from std_msgs.msg import Bool
 
 from spar_msgs.msg import FlightMotionAction, FlightMotionGoal
 
 def send_wp(spar_client, x, y, z, yaw):
-	speed = rospy.get_param("~speed", 1.0)
+	speed = rospy.get_param("~speed", 1.5)
 	accuracy = rospy.get_param("~accuracy", 0.1)
 
 	goal = FlightMotionGoal()
@@ -45,13 +46,26 @@ def send_wps(spar_client):
 
 	# List of waypoints
 	# [X, Y, Z, Yaw]
-	wps = [[ 0.0, 0.0, 1.0, 0.0],
-		   [ 1.0, 1.0, 1.0, 0.0],
-		   [-1.0, 1.0, 1.0, 0.0],
-		   [-1.5,0.0, 1.0, 0.0],
-		   [-1.0,-1.0, 1.0, 0.0],
-		   [ 1.0,-1.0, 1.0, 0.0],
-		   [ 0.0, 0.0, 1.0, 0.0]]
+	wps = [[ 0.0, 0.0, 3.5, 0.0],
+		   [-5.5,-9.0, 3.5, 0.0],	
+		   [-13.0,-9.0, 3.5,0.0],
+		   [-13.0,-5.5, 3.5,0.0],
+		   [-9.5,-5.5, 3.5, 0.0],
+		   [-9.5, 2.0, 3.5, 0.0],
+		   [-13.0, 2.0, 3.5,0.0],
+		   [-13.0, 9.0, 3.5,0.0],
+		   [-5.5, 9.0, 3.5, 0.0],
+		   [ -5.5, 7.5, 3.5,0.0],	
+		   [ -8.5, 7.5, 3.5,0.0],
+		   [ -8.5,6.0, 3.5, 0.0],
+		   [-5.5, 6.0, 3.5, 0.0],
+		   [-10.5, 5.5, 3.5,0.0],
+		   [-10.0, 3.5, 3.5,0.0],
+		   [-8.0, 3.5, 3.5, 0.0],
+		   [-8.0, -7.5, 3.5,0.0],
+		   [-5.5, -7.5, 3.5,0.0],	
+		   [-5.5, -5.0, 3.5,0.0],			   	   		   	   
+		   [ 0.0, 0.0, 3.5, 0.0]]
 
 	# Loop through each waypoint in our list
 	i = 0
@@ -68,22 +82,119 @@ def send_wps(spar_client):
 	if success:
 		rospy.loginfo("Waypoints complete!")
 
+def send_wps_1(spar_client):
+	success = True
+
+	# List of waypoints
+	# [X, Y, Z, Yaw]
+	wps = [[ 0.0, 0.0, 2.0, 0.0],
+		   [ 1.0, 1.0, 2.0, 0.0],
+		   [-1.0, 1.0, 2.0, 0.0],
+		   [-1.0,-1.0, 2.0, 0.0],
+		   [ 1.0,-1.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0]]
+
+	# Loop through each waypoint in our list
+	i = 0
+	for wp in wps:
+		rospy.loginfo("Sending waypoint %i..." % (i + 1))
+		success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
+		i += 1
+
+		# If we had an error, print and stop sending
+		if not success:
+			rospy.logerr("Waypoints failed!")
+			break;
+
+	if success:
+		rospy.loginfo("Waypoints complete!")
+
+def land_drones(spar_client):
+	# Create our goal
+	goal = FlightMotionGoal()
+	goal.motion = FlightMotionGoal.MOTION_LAND
+	goal.velocity_vertical = rospy.get_param("~speed", 0.2)		# Other velocity information is ignored
+	# No other information is used
+
+	# Send the goal
+	rospy.loginfo("Sending goal motion...")
+	spar_client.send_goal(goal)
+	 # If shutdown is issued, cancel current mission before rospy is shutdown
+	rospy.on_shutdown(lambda : spar_client.cancel_goal())
+	# Wait for the result of the goal
+	spar_client.wait_for_result()
+
+	# Output some feedback for our flight
+	result = spar_client.get_state()
+	if result == GoalStatus.SUCCEEDED:
+		rospy.loginfo("Landing complete!")
+	else:
+		rospy.logerr("Landing failed!")
+
+		# Detailed Feedback
+		if result != GoalStatus.SUCCEEDED:
+			if(result == GoalStatus.PENDING) or (result == GoalStatus.ACTIVE):
+				rospy.loginfo("Sent command to cancel current mission")
+			elif(result == GoalStatus.PREEMPTED):
+				rospy.logwarn("The current mission was cancelled")
+			elif(result == GoalStatus.ABORTED):
+				rospy.logwarn("The current mission was aborted")
+			elif(result == GoalStatus.RECALLED):
+				rospy.logerr("Error: The current mission was recalled")
+			elif(result == GoalStatus.REJECTED):
+				rospy.logerr("Error: The current mission was rejected")
+			else:
+				rospy.logerr("Error: An unknown goal status was recieved")
+
+def worker(spar_client, waypoint_function):
+    """Thread worker function."""
+    waypoint_function(spar_client)	
+
+def callback_target_found(msg_in):
+	rospy.loginfo("Received message on /land_trigger: %s", msg_in.data)
+	if(msg_in.data == True):
+		rospy.loginfo("received msg to land")
+		land_drones(spar_client)
+		land_drones(spar_client_1)
+
+
+
 def main(args):
 	# Initialise ROS
 	rospy.init_node('takeoff', anonymous=True)
+	sub_landtrigger = rospy.Subscriber('/land_trigger', Bool, callback_target_found)
 	# Get our action namespace (where to send flight commands to)
-	action_ns = rospy.get_param("~action_topic", 'spar/flight')
+	action_ns = rospy.get_param("~action_topic", 'uav0/spar/flight')
+	action_ns_1 = rospy.get_param("~action_topic", 'uav1/spar/flight')
 
-	# Create our action client
+	# Create our action client for drone 0
+	global spar_client
 	spar_client = actionlib.SimpleActionClient(action_ns, FlightMotionAction)
 	rospy.loginfo("Waiting for spar...")
 	spar_client.wait_for_server()
+
+	# Create our action client for drone 1
+	global spar_client_1
+	spar_client_1 = actionlib.SimpleActionClient(action_ns_1, FlightMotionAction)
+	rospy.loginfo("Waiting for spar...")
+	spar_client_1.wait_for_server()	
 
 	# Send the flight command
 	# This will lock the thread until it is "done"
 	# Make sure "ros is ok" in case we hit CTRL-C while waiting above
 	if not rospy.is_shutdown():
-		send_wps(spar_client)
+		t1 = threading.Thread(target=worker, args=(spar_client, send_wps))
+		t2 = threading.Thread(target=worker, args=(spar_client_1, send_wps_1))
+
+		t1.start()
+		t2.start()
+
+		t1.join()
+		t2.join()
+	
+		# send_wps(spar_client)
+		# send_wps_1(spar_client_1)
+
 
 if __name__ == '__main__':
 	try:
