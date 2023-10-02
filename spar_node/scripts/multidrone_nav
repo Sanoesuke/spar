@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+
+import sys
+from math import *
+import threading
+#import roslib
+#roslib.load_manifest('spar_node')
+import rospy
+import actionlib
+from actionlib_msgs.msg import GoalStatus
+from std_msgs.msg import Bool
+
+from spar_msgs.msg import FlightMotionAction, FlightMotionGoal
+
+class UAV:
+	def __init__(self, action_ns, waypoints, uav_id):
+		self.uav_id = uav_id		
+		self.action_ns = action_ns
+		self.spar_client = actionlib.SimpleActionClient(action_ns, FlightMotionAction)
+		rospy.loginfo(f"Waiting for {uav_id}...")
+		self.spar_client.wait_for_server()
+		self.stop_event = threading.Event()		
+		self.waypoints = waypoints  # Each UAV has its own waypoints
+		self.flight_height = self.waypoints[2]
+
+		self.sub_landtrigger = rospy.Subscriber("/land_trigger_{}".format(self.uav_id), Bool, self.callback_target_found)
+
+		
+
+	def send_wp(self, x, y, z, yaw):
+		speed = rospy.get_param("~speed", 1.5)
+		accuracy = rospy.get_param("~accuracy", 0.1)
+
+		goal = FlightMotionGoal()
+		goal.motion = FlightMotionGoal.MOTION_GOTO
+		goal.position.x = x
+		goal.position.y = y
+		goal.position.z = z
+		goal.yaw = yaw
+		goal.velocity_vertical = speed
+		goal.velocity_horizontal = speed
+		goal.yawrate = speed
+		goal.wait_for_convergence = True							# Wait for our takeoff "waypoint" to be reached
+		goal.position_radius = accuracy
+		goal.yaw_range = accuracy
+
+		self.spar_client.send_goal(goal)
+		# If shutdown is issued, cancel current mission before rospy is shutdown
+		rospy.on_shutdown(lambda : self.spar_client.cancel_goal())
+		# Wait for the result of the goal
+		self.spar_client.wait_for_result()
+
+		#Stop at waypoint for a moment
+		rospy.sleep(2)
+
+		# Output some feedback for our motion
+		return self.spar_client.get_state() == GoalStatus.SUCCEEDED
+
+	def send_wps(self):
+
+		# Loop through each waypoint in our list
+		i = 0
+		for wp in self.waypoints:
+			if not rospy.is_shutdown():
+			# Break if global landing event is set
+				if 	self.stop_event.is_set():
+					rospy.loginfo(f"{self.uav_id} - Global land event detected, breaking waypoint loop")
+					self.interrupt_and_divert()
+					break
+
+				rospy.loginfo(f"{self.uav_id} - Sending waypoint {i + 1}...")		
+				success = self.send_wp(wp[0], wp[1], wp[2], wp[3])
+				i += 1
+
+				# If we had an error, print and stop sending
+				if not success:
+					rospy.logerr(f"Waypoints failed {self.uav_id}!")
+					break;
+
+		if success:
+			rospy.loginfo(f"Waypoints complete {self.uav_id}!")	
+
+	def land_drones(self):
+		# Create our goal
+		goal = FlightMotionGoal()
+		goal.motion = FlightMotionGoal.MOTION_LAND
+		goal.velocity_vertical = rospy.get_param("~speed", 0.8)		# Other velocity information is ignored
+		# No other information is used
+
+		# Send the goal
+		rospy.loginfo("Sending goal motion...")
+		self.spar_client.send_goal(goal)
+		# If shutdown is issued, cancel current mission before rospy is shutdown
+		rospy.on_shutdown(lambda : self.spar_client.cancel_goal())
+		# Wait for the result of the goal
+		self.spar_client.wait_for_result()
+
+		# Output some feedback for our flight
+		result = self.spar_client.get_state()
+		if result == GoalStatus.SUCCEEDED:
+			rospy.loginfo("Landing complete!")
+		else:
+			rospy.logerr("Landing failed!")
+
+			# Detailed Feedback
+			if result != GoalStatus.SUCCEEDED:
+				if(result == GoalStatus.PENDING) or (result == GoalStatus.ACTIVE):
+					rospy.loginfo("Sent command to cancel current mission")
+				elif(result == GoalStatus.PREEMPTED):
+					rospy.logwarn("The current mission was cancelled")
+				elif(result == GoalStatus.ABORTED):
+					rospy.logwarn("The current mission was aborted")
+				elif(result == GoalStatus.RECALLED):
+					rospy.logerr("Error: The current mission was recalled")
+				elif(result == GoalStatus.REJECTED):
+					rospy.logerr("Error: The current mission was rejected")
+				else:
+					rospy.logerr("Error: An unknown goal status was recieved")
+
+	def interrupt_and_divert(self):
+		self.stop_event.set()
+		rospy.sleep(5)
+		origin = self.waypoints[0]
+		self.send_wp(origin[0], origin[1], origin[2], origin[3])
+		rospy.sleep(5)
+		if self.spar_client.get_state() == GoalStatus.SUCCEEDED:
+			self.land_drones()  # Land after reaching the diversion location
+
+	def callback_target_found(self, msg_in):
+		rospy.loginfo(f"{self.uav_id} - Received land trigger")       
+		if(msg_in.data == True):
+			self.interrupt_and_divert()
+
+
+def handle_uav(uav):
+    uav.send_wps()
+
+
+def main(args):
+	rospy.init_node('multi_uav_control', anonymous=True)
+	# action_ns_0 = rospy.get_param("~action_topic", 'uav0/spar/flight')
+	action_ns_1 = rospy.get_param("~action_topic", 'uav1/spar/flight')
+
+	uav0_flgihtalt = 3.5
+	uav1_flgihtalt = 3.0
+
+    # Define waypoints for each UAV. For this example, I'm assuming 3 UAVs.
+	waypoints_uav0 = [[ 0.0, 0.0, uav0_flgihtalt, 0.0],
+					[-5.5,-9.0, uav0_flgihtalt, 0.0],	
+					[-13.0,-9.0, uav0_flgihtalt,0.0],
+					[-13.0,-5.5, uav0_flgihtalt,0.0],
+					[-9.5,-5.5, uav0_flgihtalt, 0.0],
+					[-9.5, 2.0, uav0_flgihtalt, 0.0],
+					[-13.0, 2.0, uav0_flgihtalt,0.0],
+					[-13.0, 9.0, uav0_flgihtalt,0.0],
+					[-5.5, 9.0, uav0_flgihtalt, 0.0],
+					[ -5.5, 7.5, uav0_flgihtalt,0.0],	
+					[ -8.5, 7.5, uav0_flgihtalt,0.0],
+					[ -8.5,6.0, uav0_flgihtalt, 0.0],
+					[-5.5, 6.0, uav0_flgihtalt, 0.0],
+					[-10.5, 5.5, uav0_flgihtalt,0.0],
+					[-10.0, 3.5, uav0_flgihtalt,0.0],
+					[-8.0, 3.5, uav0_flgihtalt, 0.0],
+					[-8.0, -7.5, uav0_flgihtalt,0.0],
+					[-5.5, -7.5, uav0_flgihtalt,0.0],	
+					[-5.5, -5.0, uav0_flgihtalt,0.0],			   	   		   	   
+					[ 0.0, 0.0, uav0_flgihtalt, 0.0]]
+
+	waypoints_uav1 = [[ 0.0, 0.0, uav1_flgihtalt, 0.0],
+					[ -5.5, -9.0, uav1_flgihtalt, 0.0],
+					[-4.0, -9.0, uav1_flgihtalt, 0.0],
+					[-4.0, 9.0, uav1_flgihtalt, 0.0],
+					[ -2.0, 9.0, uav1_flgihtalt, 0.0],
+					[ -2.0, -9.0, uav1_flgihtalt, 0.0],
+					[ 5.0, -9.0, uav1_flgihtalt, 0.0],
+					[ 5.0, -8.0, uav1_flgihtalt, 0.0],
+					[-2.0, -8.0, uav1_flgihtalt, 0.0],
+					[-2.0,-6.5, uav1_flgihtalt, 0.0],
+					[ 4.0,-6.5, uav1_flgihtalt, 0.0],
+					[ 4.0, 9.0, uav1_flgihtalt, 0.0],
+					[ -2.0, 9.0, uav1_flgihtalt, 0.0],
+					[ -2.0, 7.0, uav1_flgihtalt, 0.0],
+					[4.0, 7.0, uav1_flgihtalt, 0.0],
+					[ 4.0,3.0, uav1_flgihtalt, 0.0],
+					[ -2.0, 3.0, uav1_flgihtalt, 0.0],
+					[ -2.0, 1.0, uav1_flgihtalt, 0.0],
+					[ 4.0, 1.0, uav1_flgihtalt, 0.0],
+					[ 4.0, -1.0, uav1_flgihtalt, 0.0],
+					[-2.0, -1.0, uav1_flgihtalt, 0.0],
+					[-2.0,-3.0, uav1_flgihtalt, 0.0],
+					[ 4.0,-3.0, uav1_flgihtalt, 0.0],
+					[ 0.0, 0.0, uav1_flgihtalt, 0.0]]
+    # waypoints_uav2 = [[-1.0, 1.0, 1.0, 0.0], ...]
+
+	id_0 = "UAV0"
+	id_1 = "UAV1"
+
+	# uav0 = UAV(action_ns_0, waypoints_uav0,id_0)
+	uav1 = UAV(action_ns_1, waypoints_uav1,id_1)
+    # uav2 = UAV('spar/flight_3', waypoints_uav2)
+
+	# Start a new thread for each UAV to send its waypoints concurrently.
+	# threading.Thread(target=handle_uav, args=(uav0,)).start()
+	threading.Thread(target=handle_uav, args=(uav1,)).start()
+	# threading.Thread(target=handle_uav, args=(uav2,)).start()
+
+		# Spin!
+	# rospy.spin()
+
+
+if __name__ == '__main__':
+	try:
+		main(sys.argv)
+	except rospy.ROSInterruptException:
+		pass
+
+	print('')

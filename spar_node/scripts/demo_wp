@@ -70,8 +70,8 @@ def send_wps(spar_client):
 	# Loop through each waypoint in our list
 	i = 0
 	for wp in wps:
-		print(landing)
 		if not landing:
+			print(landing )			
 			rospy.loginfo("Sending waypoint uav0 %i..." % (i + 1))			
 			success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
 			i += 1
@@ -100,13 +100,25 @@ def send_wps_1(spar_client):
 		   [-1.0, 1.0, 2.0, 0.0],
 		   [-1.0,-1.0, 2.0, 0.0],
 		   [ 1.0,-1.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0],
+		   [ 1.0, 1.0, 2.0, 0.0],
+		   [-1.0, 1.0, 2.0, 0.0],
+		   [-1.0,-1.0, 2.0, 0.0],
+		   [ 1.0,-1.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0],
+		   [ 0.0, 0.0, 2.0, 0.0],
+		   [ 1.0, 1.0, 2.0, 0.0],
+		   [-1.0, 1.0, 2.0, 0.0],
+		   [-1.0,-1.0, 2.0, 0.0],
+		   [ 1.0,-1.0, 2.0, 0.0],
 		   [ 0.0, 0.0, 2.0, 0.0]]
 
 	# Loop through each waypoint in our list
 	i = 0
 	for wp in wps:
 		if not landing:
-			print(landing)
+			print(landing )
 			rospy.loginfo("Sending waypoint uav1 %i..." % (i + 1))			
 			success = send_wp(spar_client, wp[0], wp[1], wp[2], wp[3])
 			i += 1
