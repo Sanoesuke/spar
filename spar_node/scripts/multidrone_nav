@@ -138,71 +138,91 @@ def handle_uav(uav):
 
 def main(args):
 	rospy.init_node('multi_uav_control', anonymous=True)
-	# action_ns_0 = rospy.get_param("~action_topic", 'uav0/spar/flight')
+	action_ns_0 = rospy.get_param("~action_topic", 'uav0/spar/flight')
 	action_ns_1 = rospy.get_param("~action_topic", 'uav1/spar/flight')
+	action_ns_2 = rospy.get_param("~action_topic", 'uav2/spar/flight')
 
-	uav0_flgihtalt = 3.5
-	uav1_flgihtalt = 3.0
+	uav0_flightalt = 3.5
+	uav1_flightalt = 3.0
+	uav2_flightalt = 4.0
 
     # Define waypoints for each UAV. For this example, I'm assuming 3 UAVs.
-	waypoints_uav0 = [[ 0.0, 0.0, uav0_flgihtalt, 0.0],
-					[-5.5,-9.0, uav0_flgihtalt, 0.0],	
-					[-13.0,-9.0, uav0_flgihtalt,0.0],
-					[-13.0,-5.5, uav0_flgihtalt,0.0],
-					[-9.5,-5.5, uav0_flgihtalt, 0.0],
-					[-9.5, 2.0, uav0_flgihtalt, 0.0],
-					[-13.0, 2.0, uav0_flgihtalt,0.0],
-					[-13.0, 9.0, uav0_flgihtalt,0.0],
-					[-5.5, 9.0, uav0_flgihtalt, 0.0],
-					[ -5.5, 7.5, uav0_flgihtalt,0.0],	
-					[ -8.5, 7.5, uav0_flgihtalt,0.0],
-					[ -8.5,6.0, uav0_flgihtalt, 0.0],
-					[-5.5, 6.0, uav0_flgihtalt, 0.0],
-					[-10.5, 5.5, uav0_flgihtalt,0.0],
-					[-10.0, 3.5, uav0_flgihtalt,0.0],
-					[-8.0, 3.5, uav0_flgihtalt, 0.0],
-					[-8.0, -7.5, uav0_flgihtalt,0.0],
-					[-5.5, -7.5, uav0_flgihtalt,0.0],	
-					[-5.5, -5.0, uav0_flgihtalt,0.0],			   	   		   	   
-					[ 0.0, 0.0, uav0_flgihtalt, 0.0]]
+	waypoints_uav0 = [[ 0.0, 0.0, uav0_flightalt, 0.0],
+					[-5.5,-9.0, uav0_flightalt, 0.0],	
+					[-13.0,-9.0, uav0_flightalt,0.0],
+					[-13.0,-5.5, uav0_flightalt,0.0],
+					[-9.5,-5.5, uav0_flightalt, 0.0],
+					[-9.5, 2.0, uav0_flightalt, 0.0],
+					[-13.0, 2.0, uav0_flightalt,0.0],
+					[-13.0, 9.0, uav0_flightalt,0.0],
+					[-5.5, 9.0, uav0_flightalt, 0.0],
+					[ -5.5, 7.5, uav0_flightalt,0.0],	
+					[ -8.5, 7.5, uav0_flightalt,0.0],
+					[ -8.5,6.0, uav0_flightalt, 0.0],
+					[-5.5, 6.0, uav0_flightalt, 0.0],
+					[-10.5, 5.5, uav0_flightalt,0.0],
+					[-10.0, 3.5, uav0_flightalt,0.0],
+					[-8.0, 3.5, uav0_flightalt, 0.0],
+					[-8.0, -7.5, uav0_flightalt,0.0],
+					[-5.5, -7.5, uav0_flightalt,0.0],	
+					[-5.5, -5.0, uav0_flightalt,0.0],			   	   		   	   
+					[ 0.0, 0.0, uav0_flightalt, 0.0]]
 
-	waypoints_uav1 = [[ 0.0, 0.0, uav1_flgihtalt, 0.0],
-					[ -5.5, -9.0, uav1_flgihtalt, 0.0],
-					[-4.0, -9.0, uav1_flgihtalt, 0.0],
-					[-4.0, 9.0, uav1_flgihtalt, 0.0],
-					[ -2.0, 9.0, uav1_flgihtalt, 0.0],
-					[ -2.0, -9.0, uav1_flgihtalt, 0.0],
-					[ 5.0, -9.0, uav1_flgihtalt, 0.0],
-					[ 5.0, -8.0, uav1_flgihtalt, 0.0],
-					[-2.0, -8.0, uav1_flgihtalt, 0.0],
-					[-2.0,-6.5, uav1_flgihtalt, 0.0],
-					[ 4.0,-6.5, uav1_flgihtalt, 0.0],
-					[ 4.0, 9.0, uav1_flgihtalt, 0.0],
-					[ -2.0, 9.0, uav1_flgihtalt, 0.0],
-					[ -2.0, 7.0, uav1_flgihtalt, 0.0],
-					[4.0, 7.0, uav1_flgihtalt, 0.0],
-					[ 4.0,3.0, uav1_flgihtalt, 0.0],
-					[ -2.0, 3.0, uav1_flgihtalt, 0.0],
-					[ -2.0, 1.0, uav1_flgihtalt, 0.0],
-					[ 4.0, 1.0, uav1_flgihtalt, 0.0],
-					[ 4.0, -1.0, uav1_flgihtalt, 0.0],
-					[-2.0, -1.0, uav1_flgihtalt, 0.0],
-					[-2.0,-3.0, uav1_flgihtalt, 0.0],
-					[ 4.0,-3.0, uav1_flgihtalt, 0.0],
-					[ 0.0, 0.0, uav1_flgihtalt, 0.0]]
-    # waypoints_uav2 = [[-1.0, 1.0, 1.0, 0.0], ...]
+	waypoints_uav1 = [[ 0.0, 0.0, uav1_flightalt, 0.0],
+					[ -5.5, -9.0, uav1_flightalt, 0.0],
+					[-4.0, -9.0, uav1_flightalt, 0.0],
+					[-4.0, 9.0, uav1_flightalt, 0.0],
+					[ -2.0, 9.0, uav1_flightalt, 0.0],
+					[ -2.0, -9.0, uav1_flightalt, 0.0],
+					[ 5.0, -9.0, uav1_flightalt, 0.0],
+					[ 5.0, -8.0, uav1_flightalt, 0.0],
+					[-2.0, -8.0, uav1_flightalt, 0.0],
+					[-2.0,-6.5, uav1_flightalt, 0.0],
+					[ 4.0,-6.5, uav1_flightalt, 0.0],
+					[ 4.0, 9.0, uav1_flightalt, 0.0],
+					[ -2.0, 9.0, uav1_flightalt, 0.0],
+					[ -2.0, 7.0, uav1_flightalt, 0.0],
+					[4.0, 7.0, uav1_flightalt, 0.0],
+					[ 4.0,3.0, uav1_flightalt, 0.0],
+					[ -2.0, 3.0, uav1_flightalt, 0.0],
+					[ -2.0, 1.0, uav1_flightalt, 0.0],
+					[ 4.0, 1.0, uav1_flightalt, 0.0],
+					[ 4.0, -1.0, uav1_flightalt, 0.0],
+					[-2.0, -1.0, uav1_flightalt, 0.0],
+					[-2.0,-3.0, uav1_flightalt, 0.0],
+					[ 4.0,-3.0, uav1_flightalt, 0.0],
+					[ 0.0, 0.0, uav1_flightalt, 0.0]]
+	
+	waypoints_uav2 = [[ 0.0, 0.0, uav2_flightalt, 0.0],
+					[ 5.0, -9.0, uav2_flightalt, 0.0],
+					[14.0, -9.0, uav2_flightalt, 0.0],
+					[14.0, -7.0, uav2_flightalt, 0.0],
+					[ 5.0, -7.0, uav2_flightalt, 0.0],
+					[ 5.0, 9.0, uav2_flightalt, 0.0],
+					[ 14.0, 9.0, uav2_flightalt, 0.0],
+					[ 14.0, -9.0, uav2_flightalt, 0.0],
+					[14.0, -3.5, uav2_flightalt, 0.0],
+					[-12.0,-3.5, uav2_flightalt, 0.0],
+					[ 12.0, 9.0, uav2_flightalt, 0.0],
+					[ 10.0, 9.0, uav2_flightalt, 0.0],
+					[ 10.0, -9.0, uav2_flightalt, 0.0],
+					[ 9.0, -9.0, uav2_flightalt, 0.0],
+					[9.0, 8.0, uav2_flightalt, 0.0],
+					[ 5.0, 8.0, uav2_flightalt, 0.0],
+					[ 0.0, 0.0, uav2_flightalt, 0.0]]
 
 	id_0 = "UAV0"
 	id_1 = "UAV1"
+	id_2 = "UAV2"
 
-	# uav0 = UAV(action_ns_0, waypoints_uav0,id_0)
+	uav0 = UAV(action_ns_0, waypoints_uav0,id_0)
 	uav1 = UAV(action_ns_1, waypoints_uav1,id_1)
-    # uav2 = UAV('spar/flight_3', waypoints_uav2)
+	uav2 = UAV(action_ns_2, waypoints_uav2,id_2)
 
 	# Start a new thread for each UAV to send its waypoints concurrently.
-	# threading.Thread(target=handle_uav, args=(uav0,)).start()
+	threading.Thread(target=handle_uav, args=(uav0,)).start()
 	threading.Thread(target=handle_uav, args=(uav1,)).start()
-	# threading.Thread(target=handle_uav, args=(uav2,)).start()
+	threading.Thread(target=handle_uav, args=(uav2,)).start()
 
 		# Spin!
 	# rospy.spin()
