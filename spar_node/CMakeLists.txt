@@ -177,6 +177,7 @@ catkin_install_python(PROGRAMS
   scripts/tf2_broadcaster_frames
   scripts/tf2_broadcaster_target
   scripts/multidrone_nav
+  scripts/multidrone_roinav  
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

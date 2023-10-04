@@ -121,7 +121,7 @@ class UAV:
 		self.stop_event.set()
 		rospy.sleep(5)
 		origin = self.waypoints[0]
-		self.send_wp(origin[0], origin[1], origin[2], origin[3])
+		self.send_wp(origin[0], origin[1], self.flight_height , origin[3])
 		rospy.sleep(5)
 		if self.spar_client.get_state() == GoalStatus.SUCCEEDED:
 			self.land_drones()  # Land after reaching the diversion location
